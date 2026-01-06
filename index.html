@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Öğrenci Not Yönetim Sistemi</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.7.1/firebase-app-compat.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.7.1/firebase-firestore-compat.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ⚠️ BURAYA FIREBASE CONFIG BİLGİLERİNİZİ YAPIŞTIRIN
+	const firebaseConfig = {
+	  apiKey: "AIzaSyDLln_FWCO42hRMQp8eOiIKa6OtyI9ZwKY",
+	  authDomain: "not-yonetim-sistemi.firebaseapp.com",
+	  projectId: "not-yonetim-sistemi",
+	  storageBucket: "not-yonetim-sistemi.firebasestorage.app",
+	  messagingSenderId: "982381508806",
+	  appId: "1:982381508806:web:7918e7acace25393da7fc7",
+	  measurementId: "G-7PPNYHJZ3F"
+	};
+
+    // Firebase başlatma
+    let db;
+    let isFirebaseConfigured = false;
+
+    try {
+      // Config kontrolü
+      if (firebaseConfig.apiKey !== "BURAYA_API_KEY") {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        isFirebaseConfigured = true;
+      }
+    } catch (error) {
+      console.error("Firebase başlatma hatası:", error);
+    }
+
+    // Icon Components
+    const Download = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+    );
+
+    const Plus = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+    );
+
+    const Trash2 = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+    );
+
+    const Edit2 = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    );
+
+    const X = () => (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+
+    const Users = () => (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    );
+
+    const BookOpen = () => (
+      <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+      </svg>
+    );
+
+    const TrendingUp = () => (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+      </svg>
+    );
+
+    const AlertCircle = () => (
+      <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+
+    // Main App Component
+    const GradeManager = () => {
+      const [classes, setClasses] = useState([]);
+      const [students, setStudents] = useState([]);
+      const [selectedClass, setSelectedClass] = useState(null);
+      const [showClassModal, setShowClassModal] = useState(false);
+      const [showStudentModal, setShowStudentModal] = useState(false);
+      const [showGradeModal, setShowGradeModal] = useState(false);
+      const [editingClass, setEditingClass] = useState(null);
+      const [editingStudent, setEditingStudent] = useState(null);
+      const [selectedStudent, setSelectedStudent] = useState(null);
+      const [loading, setLoading] = useState(true);
+
+      const gradeTypes = [
+        { name: 'Yazılı', weight: 50 },
+        { name: 'Dinleme', weight: 25 },
+        { name: 'Konuşma', weight: 25 }
+      ];
+
+      // Firebase veya localStorage kullan
+      useEffect(() => {
+        if (isFirebaseConfigured) {
+          loadFromFirebase();
+        } else {
+          loadFromLocalStorage();
+        }
+      }, []);
+
+      const loadFromFirebase = () => {
+        // Sınıfları dinle
+        db.collection('classes').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+          const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setClasses(classesData);
+          setLoading(false);
+        });
+
+        // Öğrencileri dinle
+        db.collection('students').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+          const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setStudents(studentsData);
+        });
+      };
+
+      const loadFromLocalStorage = () => {
+        const savedClasses = localStorage.getItem('classes');
+        const savedStudents = localStorage.getItem('students');
+        
+        if (savedClasses) setClasses(JSON.parse(savedClasses));
+        if (savedStudents) setStudents(JSON.parse(savedStudents));
+        
+        setLoading(false);
+      };
+
+      const saveClasses = async (newClasses) => {
+        setClasses(newClasses);
+        if (!isFirebaseConfigured) {
+          localStorage.setItem('classes', JSON.stringify(newClasses));
+        }
+      };
+
+      const saveStudents = async (newStudents) => {
+        setStudents(newStudents);
+        if (!isFirebaseConfigured) {
+          localStorage.setItem('students', JSON.stringify(newStudents));
+        }
+      };
+
+      const addClass = async (className) => {
+        const newClass = {
+          name: className,
+          createdAt: new Date().toISOString()
+        };
+
+        if (isFirebaseConfigured) {
+          await db.collection('classes').add(newClass);
+        } else {
+          newClass.id = Date.now().toString();
+          await saveClasses([...classes, newClass]);
+        }
+        
+        setShowClassModal(false);
+      };
+
+      const updateClass = async (classId, newName) => {
+        if (isFirebaseConfigured) {
+          await db.collection('classes').doc(classId).update({ name: newName });
+        } else {
+          const updated = classes.map(c => c.id === classId ? { ...c, name: newName } : c);
+          await saveClasses(updated);
+        }
+        setEditingClass(null);
+      };
+
+      const deleteClass = async (classId) => {
+        if (!confirm('Bu sınıfı ve tüm öğrencilerini silmek istediğinizden emin misiniz?')) return;
+
+        if (isFirebaseConfigured) {
+          await db.collection('classes').doc(classId).delete();
+          const studentsSnapshot = await db.collection('students').where('classId', '==', classId).get();
+          studentsSnapshot.forEach(doc => doc.ref.delete());
+        } else {
+          await saveClasses(classes.filter(c => c.id !== classId));
+          await saveStudents(students.filter(s => s.classId !== classId));
+        }
+        
+        if (selectedClass?.id === classId) setSelectedClass(null);
+      };
+
+      const addStudent = async (studentData) => {
+        const newStudent = {
+          classId: selectedClass.id,
+          name: studentData.name,
+          number: studentData.number,
+          grades: { Yazılı: null, Dinleme: null, Konuşma: null },
+          createdAt: new Date().toISOString()
+        };
+
+        if (isFirebaseConfigured) {
+          await db.collection('students').add(newStudent);
+        } else {
+          newStudent.id = Date.now().toString();
+          await saveStudents([...students, newStudent]);
+        }
+        
+        setShowStudentModal(false);
+      };
+
+      const updateStudent = async (studentId, studentData) => {
+        if (isFirebaseConfigured) {
+          await db.collection('students').doc(studentId).update({
+            name: studentData.name,
+            number: studentData.number
+          });
+        } else {
+          const updated = students.map(s => 
+            s.id === studentId ? { ...s, name: studentData.name, number: studentData.number } : s
+          );
+          await saveStudents(updated);
+        }
+        setEditingStudent(null);
+      };
+
+      const deleteStudent = async (studentId) => {
+        if (!confirm('Bu öğrenciyi silmek istediğinizden emin misiniz?')) return;
+
+        if (isFirebaseConfigured) {
+          await db.collection('students').doc(studentId).delete();
+        } else {
+          await saveStudents(students.filter(s => s.id !== studentId));
+        }
+      };
+
+      const updateGrades = async (studentId, grades) => {
+        if (isFirebaseConfigured) {
+          await db.collection('students').doc(studentId).update({ grades });
+        } else {
+          const updated = students.map(s => s.id === studentId ? { ...s, grades } : s);
+          await saveStudents(updated);
+        }
+        setShowGradeModal(false);
+        setSelectedStudent(null);
+      };
+
+      const calculateAverage = (grades) => {
+        let total = 0;
+        let hasAllGrades = true;
+        
+        gradeTypes.forEach(type => {
+          const grade = grades[type.name];
+          if (grade === null || grade === undefined || grade === '') {
+            hasAllGrades = false;
+          } else {
+            total += (parseFloat(grade) * type.weight) / 100;
+          }
+        });
+        
+        return hasAllGrades ? total.toFixed(2) : '-';
+      };
+
+      const exportToExcel = () => {
+        if (!selectedClass) return;
+        
+        const classStudents = students.filter(s => s.classId === selectedClass.id);
+        const data = classStudents.map(student => ({
+          'Numara': student.number,
+          'Ad Soyad': student.name,
+          'Yazılı': student.grades.Yazılı || '-',
+          'Dinleme': student.grades.Dinleme || '-',
+          'Konuşma': student.grades.Konuşma || '-',
+          'Ortalama': calculateAverage(student.grades)
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, selectedClass.name);
+        XLSX.writeFile(wb, `${selectedClass.name}_notlar.xlsx`);
+      };
+
+      const classStudents = selectedClass ? students.filter(s => s.classId === selectedClass.id) : [];
+      const classAverage = classStudents.length > 0
+        ? (classStudents.reduce((sum, s) => {
+            const avg = calculateAverage(s.grades);
+            return sum + (avg !== '-' ? parseFloat(avg) : 0);
+          }, 0) / classStudents.filter(s => calculateAverage(s.grades) !== '-').length).toFixed(2)
+        : '-';
+
+      if (loading) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+            <div className="text-2xl text-indigo-600">Yükleniyor...</div>
+          </div>
+        );
+      }
+
+      // Firebase config kontrolü
+      if (!isFirebaseConfigured) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl">
+              <div className="text-center mb-6">
+                <AlertCircle className="mx-auto text-red-500 mb-4" />
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Firebase Yapılandırması Gerekli</h2>
+                <p className="text-gray-600">Uygulamanın çalışması için Firebase config bilgilerinizi girmeniz gerekiyor.</p>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-yellow-900 mb-2">Yapmanız Gerekenler:</h3>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-yellow-800">
+                  <li>HTML kodunu indirin (sağ üst köşe menüsünden)</li>
+                  <li>Bir metin editöründe açın (Notepad++, VS Code vs.)</li>
+                  <li>Satır 23-29 arasındaki Firebase config bilgilerini kendi bilgilerinizle değiştirin</li>
+                  <li>Dosyayı kaydedin ve tarayıcıda açın</li>
+                </ol>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-700 mb-2"><strong>Firebase config şu şekilde görünmelidir:</strong></p>
+                <pre className="text-xs bg-gray-800 text-green-400 p-3 rounded overflow-x-auto">
+{`const firebaseConfig = {
+  apiKey: "AIzaSyC...",
+  authDomain: "proje-adi.firebaseapp.com",
+  projectId: "proje-adi",
+  storageBucket: "proje-adi.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123"
+};`}
+                </pre>
+              </div>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-500">Şu anda <strong>localStorage</strong> modu aktif (sadece bu cihazda çalışır)</p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 md:p-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 border border-indigo-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                    Öğrenci Not Yönetim Sistemi
+                  </h1>
+                  <p className="text-gray-600 mt-1">
+                    {isFirebaseConfigured ? '🔥 Firebase Aktif - Tüm Cihazlarda Senkronize' : '💾 Yerel Depolama Modu'}
+                  </p>
+                </div>
+                <BookOpen />
+              </div>
+            </div>
+
+            {/* Class Selection */}
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 border border-indigo-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                  <Users />
+                  Sınıflar
+                </h2>
+                <button
+                  onClick={() => setShowClassModal(true)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all"
+                >
+                  <Plus />
+                  Yeni Sınıf
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {classes.map(cls => (
+                  <div
+                    key={cls.id}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      selectedClass?.id === cls.id
+                        ? 'border-indigo-600 bg-indigo-50 shadow-lg'
+                        : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
+                    }`}
+                    onClick={() => setSelectedClass(cls)}
+                  >
+                    {editingClass === cls.id ? (
+                      <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          defaultValue={cls.name}
+                          className="flex-1 px-3 py-1 border border-indigo-300 rounded-lg"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              updateClass(cls.id, e.target.value);
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => setEditingClass(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <X />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-gray-800">{cls.name}</span>
+                        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => setEditingClass(cls.id)}
+                            className="text-indigo-600 hover:text-indigo-800"
+                          >
+                            <Edit2 />
+                          </button>
+                          <button
+                            onClick={() => deleteClass(cls.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-sm text-gray-600 mt-2">
+                      {students.filter(s => s.classId === cls.id).length} öğrenci
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Student List */}
+            {selectedClass && (
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-indigo-100">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-gray-800">{selectedClass.name}</h2>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                      <span className="flex items-center gap-1">
+                        <Users />
+                        {classStudents.length} öğrenci
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <TrendingUp />
+                        Sınıf Ort: {classAverage}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={exportToExcel}
+                      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all"
+                    >
+                      <Download />
+                      Excel İndir
+                    </button>
+                    <button
+                      onClick={() => setShowStudentModal(true)}
+                      className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all"
+                    >
+                      <Plus />
+                      Öğrenci Ekle
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grade Types Info */}
+                <div className="bg-indigo-50 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-4 text-sm">
+                    {gradeTypes.map(type => (
+                      <div key={type.name} className="flex items-center gap-2">
+                        <span className="font-semibold text-indigo-900">{type.name}:</span>
+                        <span className="text-indigo-700">%{type.weight}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Students Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b-2 border-indigo-200">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700">No</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Ad Soyad</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Yazılı (50%)</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Dinleme (25%)</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Konuşma (25%)</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Ortalama</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classStudents.sort((a, b) => a.number - b.number).map(student => {
+                        const avg = calculateAverage(student.grades);
+                        return (
+                          <tr key={student.id} className="border-b border-gray-100 hover:bg-indigo-50 transition-colors">
+                            <td className="py-3 px-4">{student.number}</td>
+                            <td className="py-3 px-4 font-medium">{student.name}</td>
+                            <td className="text-center py-3 px-4">{student.grades.Yazılı || '-'}</td>
+                            <td className="text-center py-3 px-4">{student.grades.Dinleme || '-'}</td>
+                            <td className="text-center py-3 px-4">{student.grades.Konuşma || '-'}</td>
+                            <td className="text-center py-3 px-4">
+                              <span className={`font-bold ${avg !== '-' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                {avg}
+                              </span>
+                            </td>
+                            <td className="text-center py-3 px-4">
+                              <div className="flex justify-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedStudent(student);
+                                    setShowGradeModal(true);
+                                  }}
+                                  className="text-indigo-600 hover:text-indigo-800"
+                                  title="Not Gir"
+                                >
+                                  <Edit2 />
+                                </button>
+                                <button
+                                  onClick={() => setEditingStudent(student)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                  title="Düzenle"
+                                >
+                                  <Edit2 />
+                                </button>
+                                <button
+                                  onClick={() => deleteStudent(student.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  title="Sil"
+                                >
+                                  <Trash2 />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Modals */}
+            {showClassModal && (
+              <Modal onClose={() => setShowClassModal(false)} title="Yeni Sınıf Ekle">
+                <ClassForm onSubmit={addClass} onCancel={() => setShowClassModal(false)} />
+              </Modal>
+            )}
+
+            {showStudentModal && (
+              <Modal onClose={() => setShowStudentModal(false)} title="Yeni Öğrenci Ekle">
+                <StudentForm onSubmit={addStudent} onCancel={() => setShowStudentModal(false)} />
+              </Modal>
+            )}
+
+            {editingStudent && (
+              <Modal onClose={() => setEditingStudent(null)} title="Öğrenci Düzenle">
+                <StudentForm
+                  student={editingStudent}
+                  onSubmit={(data) => updateStudent(editingStudent.id, data)}
+                  onCancel={() => setEditingStudent(null)}
+                />
+              </Modal>
+            )}
+
+            {showGradeModal && selectedStudent && (
+              <Modal onClose={() => { setShowGradeModal(false); setSelectedStudent(null); }} title="Not Girişi">
+                <GradeForm
+                  student={selectedStudent}
+                  gradeTypes={gradeTypes}
+                  onSubmit={(grades) => updateGrades(selectedStudent.id, grades)}
+                  onCancel={() => { setShowGradeModal(false); setSelectedStudent(null); }}
+                />
+              </Modal>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // Modal Component
+    const Modal = ({ children, onClose, title }) => (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-800">{title}</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <X />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    );
+
+    // Class Form
+    const ClassForm = ({ onSubmit, onCancel }) => {
+      const [name, setName] = useState('');
+
+      return (
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Sınıf adı (ör: 9-A)"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={() => name.trim() && onSubmit(name.trim())}
+              className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-all"
+            >
+              Ekle
+            </button>
+            <button
+              onClick={onCancel}
+              className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-all"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // Student Form
+    const StudentForm = ({ student, onSubmit, onCancel }) => {
+      const [name, setName] = useState(student?.name || '');
+      const [number, setNumber] = useState(student?.number || '');
+
+      return (
+        <div className="space-y-4">
+          <input
+            type="number"
+            value={number}
+            onChange={(e) => setNumber(e.target.value)}
+            placeholder="Öğrenci numarası"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            autoFocus
+          />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ad Soyad"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={() => name.trim() && number && onSubmit({ name: name.trim(), number })}
+              className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-all"
+            >
+              {student ? 'Güncelle' : 'Ekle'}
+            </button>
+            <button
+              onClick={onCancel}
+              className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-all"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // Grade Form
+    const GradeForm = ({ student, gradeTypes, onSubmit, onCancel }) => {
+      const [grades, setGrades] = useState(student.grades);
+
+      return (
+        <div className="space-y-4">
+          <div className="bg-indigo-50 rounded-lg p-3 mb-4">
+            <p className="font-semibold text-indigo-900">{student.name}</p>
+            <p className="text-sm text-indigo-700">No: {student.number}</p>
+          </div>
+          {gradeTypes.map(type => (
+            <div key={type.name}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {type.name} (%{type.weight})
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={grades[type.name] || ''}
+                onChange={(e) => setGrades({ ...grades, [type.name]: e.target.value })}
+                placeholder="0-100 arası"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          ))}
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => onSubmit(grades)}
+              className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-all"
+            >
+              Kaydet
+            </button>
+            <button
+              onClick={onCancel}
+              className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-all"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<GradeManager />, document.getElementById('root'));
+  </script>
+</body>
+</html>
