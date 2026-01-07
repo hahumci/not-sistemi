@@ -40,6 +40,7 @@
         db = firebase.firestore();
         auth = firebase.auth();
         isFirebaseConfigured = true;
+        console.log('Firebase initialized successfully');
       }
     } catch (error) {
       console.error("Firebase başlatma hatası:", error);
@@ -260,39 +261,61 @@
       useEffect(() => {
         if (!isFirebaseConfigured) {
           setAuthLoading(false);
+          console.warn('Firebase yapılandırılmamış - auth beklenmiyor');
           return;
         }
 
         const unsubscribe = auth.onAuthStateChanged((user) => {
+          console.log('onAuthStateChanged ->', user);
           setUser(user);
           setAuthLoading(false);
           if (user) {
-            loadFromFirebase(user.uid);
+            try {
+              loadFromFirebase(user.uid);
+            } catch (err) {
+              console.error('loadFromFirebase hata:', err);
+              setLoading(false);
+            }
           }
+        }, (err) => {
+          console.error('onAuthStateChanged error:', err);
+          setAuthLoading(false);
         });
 
         return () => unsubscribe();
       }, []);
 
       const loadFromFirebase = (userId) => {
-        // Sınıfları dinle
-        db.collection('classes')
-          .where('userId', '==', userId)
-          .orderBy('createdAt', 'desc')
-          .onSnapshot(snapshot => {
-            const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setClasses(classesData);
-            setLoading(false);
-          });
+        try {
+          // Sınıfları dinle
+          db.collection('classes')
+            .where('userId', '==', userId)
+            .orderBy('createdAt', 'desc')
+            .onSnapshot(snapshot => {
+              console.log('classes snapshot received', snapshot.size);
+              const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setClasses(classesData);
+              setLoading(false);
+            }, (err) => {
+              console.error('classes onSnapshot error:', err);
+              setLoading(false);
+            });
 
-        // Öğrencileri dinle
-        db.collection('students')
-          .where('userId', '==', userId)
-          .orderBy('createdAt', 'desc')
-          .onSnapshot(snapshot => {
-            const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setStudents(studentsData);
-          });
+          // Öğrencileri dinle
+          db.collection('students')
+            .where('userId', '==', userId)
+            .orderBy('createdAt', 'desc')
+            .onSnapshot(snapshot => {
+              console.log('students snapshot received', snapshot.size);
+              const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setStudents(studentsData);
+            }, (err) => {
+              console.error('students onSnapshot error:', err);
+            });
+        } catch (err) {
+          console.error('loadFromFirebase genel hata:', err);
+          setLoading(false);
+        }
       };
 
       const handleLogout = async () => {
