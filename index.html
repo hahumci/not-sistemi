@@ -456,7 +456,19 @@
 
       // Giriş yapmamışsa login ekranı göster
       if (!user) {
-        return <Login onLoginSuccess={() => {}} />;
+        return (
+          <Login
+            onLoginSuccess={() => {
+              // Oturum açıldıktan sonra Firebase'den gelen kullanıcıyı al ve verileri yükle
+              const current = auth?.currentUser;
+              if (current) {
+                setUser(current);
+                setAuthLoading(false);
+                loadFromFirebase(current.uid);
+              }
+            }}
+          />
+        );
       }
 
       if (loading) {
