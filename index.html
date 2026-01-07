@@ -328,14 +328,22 @@
       };
 
       const addClass = async (className) => {
-        const newClass = {
-          name: className,
-          userId: user.uid,
-          createdAt: new Date().toISOString()
-        };
+        try {
+          if (!user) throw new Error('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
 
-        await db.collection('classes').add(newClass);
-        setShowClassModal(false);
+          const newClass = {
+            name: className,
+            userId: user.uid,
+            createdAt: new Date().toISOString()
+          };
+
+          const docRef = await db.collection('classes').add(newClass);
+          console.log('Yeni sınıf eklendi:', docRef.id, newClass);
+          setShowClassModal(false);
+        } catch (err) {
+          console.error('addClass hata:', err);
+          alert('Sınıf eklenirken hata oluştu: ' + (err.message || err));
+        }
       };
 
       const updateClass = async (classId, newName) => {
