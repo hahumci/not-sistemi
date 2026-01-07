@@ -288,12 +288,14 @@
       const loadFromFirebase = (userId) => {
         try {
           // Sınıfları dinle
+          // Avoid server-side composite-index requirement by fetching without orderBy
           db.collection('classes')
             .where('userId', '==', userId)
-            .orderBy('createdAt', 'desc')
             .onSnapshot(snapshot => {
               console.log('classes snapshot received', snapshot.size);
               const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              // sort client-side by createdAt (newest first). createdAt stored as ISO string.
+              classesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
               setClasses(classesData);
               setLoading(false);
             }, (err) => {
@@ -302,12 +304,14 @@
             });
 
           // Öğrencileri dinle
+          // Fetch students without server-side ordering to avoid requiring composite index
           db.collection('students')
             .where('userId', '==', userId)
-            .orderBy('createdAt', 'desc')
             .onSnapshot(snapshot => {
               console.log('students snapshot received', snapshot.size);
               const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              // client-side sort by createdAt (newest first)
+              studentsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
               setStudents(studentsData);
             }, (err) => {
               console.error('students onSnapshot error:', err);
