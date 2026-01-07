@@ -287,34 +287,75 @@
 
       const loadFromFirebase = (userId) => {
         try {
-          // Sınıfları dinle
-          // Avoid server-side composite-index requirement by fetching without orderBy
-          db.collection('classes')
+          // clean previous listeners / intervals
+          if (window.__classesUnsub) { window.__classesUnsub(); window.__classesUnsub = null; }
+          if (window.__studentsUnsub) { window.__studentsUnsub(); window.__studentsUnsub = null; }
+          if (window.__classesPollInterval) { clearInterval(window.__classesPollInterval); window.__classesPollInterval = null; }
+          if (window.__studentsPollInterval) { clearInterval(window.__studentsPollInterval); window.__studentsPollInterval = null; }
+
+          // helper to fetch once (used by polling fallback)
+          const fetchClassesOnce = () => {
+            return db.collection('classes').where('userId', '==', userId).get().then(snapshot => {
+              console.log('classes get() fetched', snapshot.size);
+              const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              classesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              setClasses(classesData);
+              setLoading(false);
+            }).catch(err => {
+              console.error('classes get() error:', err);
+              setLoading(false);
+            });
+          };
+
+          const fetchStudentsOnce = () => {
+            return db.collection('students').where('userId', '==', userId).get().then(snapshot => {
+              console.log('students get() fetched', snapshot.size);
+              const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              studentsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              setStudents(studentsData);
+            }).catch(err => {
+              console.error('students get() error:', err);
+            });
+          };
+
+          // Try real-time listeners first
+          window.__classesUnsub = db.collection('classes')
             .where('userId', '==', userId)
             .onSnapshot(snapshot => {
               console.log('classes snapshot received', snapshot.size);
               const classesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              // sort client-side by createdAt (newest first). createdAt stored as ISO string.
               classesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
               setClasses(classesData);
               setLoading(false);
+              // if polling was active, stop it
+              if (window.__classesPollInterval) { clearInterval(window.__classesPollInterval); window.__classesPollInterval = null; }
             }, (err) => {
               console.error('classes onSnapshot error:', err);
               setLoading(false);
+              // fallback: start polling every 5s
+              if (!window.__classesPollInterval) {
+                console.warn('Starting classes polling fallback (5s)');
+                fetchClassesOnce();
+                window.__classesPollInterval = setInterval(fetchClassesOnce, 5000);
+              }
             });
 
-          // Öğrencileri dinle
-          // Fetch students without server-side ordering to avoid requiring composite index
-          db.collection('students')
+          window.__studentsUnsub = db.collection('students')
             .where('userId', '==', userId)
             .onSnapshot(snapshot => {
               console.log('students snapshot received', snapshot.size);
               const studentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              // client-side sort by createdAt (newest first)
               studentsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
               setStudents(studentsData);
+              if (window.__studentsPollInterval) { clearInterval(window.__studentsPollInterval); window.__studentsPollInterval = null; }
             }, (err) => {
               console.error('students onSnapshot error:', err);
+              // fallback: start polling every 5s
+              if (!window.__studentsPollInterval) {
+                console.warn('Starting students polling fallback (5s)');
+                fetchStudentsOnce();
+                window.__studentsPollInterval = setInterval(fetchStudentsOnce, 5000);
+              }
             });
         } catch (err) {
           console.error('loadFromFirebase genel hata:', err);
@@ -328,6 +369,11 @@
           setClasses([]);
           setStudents([]);
           setSelectedClass(null);
+          // temizle polling ve listener'lar
+          if (window.__classesUnsub) { window.__classesUnsub(); window.__classesUnsub = null; }
+          if (window.__studentsUnsub) { window.__studentsUnsub(); window.__studentsUnsub = null; }
+          if (window.__classesPollInterval) { clearInterval(window.__classesPollInterval); window.__classesPollInterval = null; }
+          if (window.__studentsPollInterval) { clearInterval(window.__studentsPollInterval); window.__studentsPollInterval = null; }
         }
       };
 
